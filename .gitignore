@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.idea/
+.vscode/
+
+# Build output
+dist/
+build/
+out/
+.next/
+.turbo/
+.cache/
+coverage/
+
+# Netlify
+.netlify/
+netlify/
+
+# Supabase local artifacts
+supabase/.branches/
+supabase/.temp/
+supabase/.cache/
+supabase/.env
+supabase/.output/
+
+# Environment files (allow example)
+.env
+.env.*
+!.env.example
+
