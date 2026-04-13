@@ -2,7 +2,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import type { Session } from "@supabase/supabase-js";
 import { invokeEdgeFunction } from "../lib/edgeFunctions";
 import { getSupabase } from "../lib/supabaseClient";
-import { IntakeTurnstile } from "./IntakeTurnstile";
+// TEMP: Turnstile disabled for V1 field testing — re-enable: import { IntakeTurnstile } from "./IntakeTurnstile";
 import { VolunteerHome } from "./VolunteerHome";
 import type { VolunteerContext } from "./types";
 import "./volunteer-onboarding.css";
@@ -46,10 +46,7 @@ function validateEmail(email: string): boolean {
 export function VolunteerOnboarding() {
   const envUrl = import.meta.env.VITE_SUPABASE_URL;
   const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const turnstileSiteKey =
-    typeof import.meta.env.VITE_TURNSTILE_SITE_KEY === "string"
-      ? import.meta.env.VITE_TURNSTILE_SITE_KEY.trim() || undefined
-      : undefined;
+  // TEMP: Turnstile disabled for V1 field testing — re-enable VITE_TURNSTILE_SITE_KEY + IntakeTurnstile after validation
 
   const [step, setStep] = useState<Step>("form");
   const [session, setSession] = useState<Session | null>(null);
@@ -79,11 +76,6 @@ export function VolunteerOnboarding() {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   const [context, setContext] = useState<VolunteerContext | null>(null);
-
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const onTurnstileToken = useCallback((t: string | null) => {
-    setTurnstileToken(t);
-  }, []);
 
   useEffect(() => {
     const ref = readReferrerFromQuery();
@@ -199,11 +191,6 @@ export function VolunteerOnboarding() {
       return;
     }
 
-    if (turnstileSiteKey && !turnstileToken?.trim()) {
-      setError("Please complete the verification check above.");
-      return;
-    }
-
     const payload: Record<string, unknown> = {
       first_name: firstName.trim(),
       last_name: lastName.trim(),
@@ -216,7 +203,7 @@ export function VolunteerOnboarding() {
       attribution_source: attributionSource.trim() || null,
       referred_by_volunteer_id: referredByVolunteerId,
       idempotency_key: intakeIdempotencyKey,
-      turnstile_token: turnstileToken?.trim() ?? null,
+      turnstile_token: null,
     };
 
     setLoading(true);
@@ -439,17 +426,7 @@ export function VolunteerOnboarding() {
               </p>
             )}
 
-            {turnstileSiteKey && (
-              <div className="vo-turnstile-wrap">
-                <p className="vo-hint vo-hint--tight">
-                  Quick check — helps keep signups human.
-                </p>
-                <IntakeTurnstile
-                  siteKey={turnstileSiteKey}
-                  onToken={onTurnstileToken}
-                />
-              </div>
-            )}
+            {/* TEMP: Turnstile disabled for V1 field testing — restore vo-turnstile-wrap + IntakeTurnstile when re-enabled */}
 
             {error && <p className="vo-error">{error}</p>}
 

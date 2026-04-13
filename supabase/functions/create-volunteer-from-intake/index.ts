@@ -11,7 +11,8 @@ import {
   V1_VOTER_CONFIRM_TASK_TITLE,
 } from "../_shared/volunteer_v1_tasks.ts";
 import { timingSafeEqualString } from "../_shared/timing_safe_string.ts";
-import { verifyTurnstileIfConfigured } from "../_shared/turnstile_verify.ts";
+// TEMP: Turnstile disabled for V1 field testing — re-enable import + call below after field validation
+// import { verifyTurnstileIfConfigured } from "../_shared/turnstile_verify.ts";
 
 type IntakeBody = {
   first_name: string;
@@ -306,19 +307,11 @@ Deno.serve(async (req: Request) => {
     return jsonError("INVALID_JSON", "Invalid JSON body", 400, correlationId);
   }
 
-  const turnstileCheck = await verifyTurnstileIfConfigured(
-    body.turnstile_token,
-    clientIpEarly,
+  // TEMP: Turnstile disabled for V1 field testing — behaves as verification succeeded (rate limit + idempotency unchanged)
+  log("info", "turnstile verification bypassed for V1 field test", {
     correlationId,
-  );
-  if (!turnstileCheck.ok) {
-    return jsonError(
-      turnstileCheck.code,
-      turnstileCheck.message,
-      turnstileCheck.status,
-      correlationId,
-    );
-  }
+    event: "volunteer_intake_turnstile_bypass",
+  });
 
   const idemRaw = trimStr(body.idempotency_key, 128);
   if (idemRaw && !/^[\w-]{8,128}$/.test(idemRaw)) {
