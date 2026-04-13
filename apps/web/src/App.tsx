@@ -1,8 +1,9 @@
+import { VolunteerOnboarding } from "./volunteer/VolunteerOnboarding";
+
 export function App() {
   return (
-    <main>
-      <h1>CAMPOS</h1>
-      <p>Volunteer Command UI will live here.</p>
+    <main style={{ minHeight: "100vh", background: "#f4f4f5" }}>
+      <VolunteerOnboarding />
     </main>
   );
 }

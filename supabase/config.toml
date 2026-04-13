@@ -381,6 +381,14 @@ port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
 
+# Public intake calls this function without a user JWT; protect with rate limits / WAF in production.
+[functions.create-volunteer-from-intake]
+verify_jwt = false
+
+# First-task completion for the onboarding slice (anon + Edge Function; tighten with auth/RLS in later phases).
+[functions.complete-volunteer-task]
+verify_jwt = false
+
 # Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)

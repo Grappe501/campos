@@ -5114,6 +5114,7 @@ export type Database = {
           person_id: string | null
           phone: string | null
           preference_digital_in_person: string | null
+          referred_by_volunteer_id: number | null
           updated_at: string
           volunteer_status: string
           voter_linkage_status: string
@@ -5133,6 +5134,7 @@ export type Database = {
           person_id?: string | null
           phone?: string | null
           preference_digital_in_person?: string | null
+          referred_by_volunteer_id?: number | null
           updated_at?: string
           volunteer_status?: string
           voter_linkage_status?: string
@@ -5152,11 +5154,19 @@ export type Database = {
           person_id?: string | null
           phone?: string | null
           preference_digital_in_person?: string | null
+          referred_by_volunteer_id?: number | null
           updated_at?: string
           volunteer_status?: string
           voter_linkage_status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "volunteers_referred_by_volunteer_id_fkey"
+            columns: ["referred_by_volunteer_id"]
+            isOneToOne: false
+            referencedRelation: "volunteers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "volunteers_person_id_fkey"
             columns: ["person_id"]
