@@ -5,7 +5,8 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
-import { corsOk, jsonError, jsonSuccess } from "../_shared/edge_api.ts";
+import { jsonError, jsonSuccess } from "../_shared/edge_api.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 import {
   getUserFromRequest,
   resolveVolunteerIdForEmail,
@@ -29,7 +30,7 @@ function log(
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return corsOk();
+    return new Response("ok", { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {

@@ -19,7 +19,8 @@ import {
   createClient,
   type SupabaseClient,
 } from "https://esm.sh/@supabase/supabase-js@2.49.8";
-import { corsOk, jsonError, jsonSuccess } from "../_shared/edge_api.ts";
+import { jsonError, jsonSuccess } from "../_shared/edge_api.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 import {
   getUserFromRequest,
 } from "../_shared/volunteer_identity.ts";
@@ -91,11 +92,11 @@ async function fetchAllVolunteerTasks(
 }
 
 Deno.serve(async (req: Request) => {
-  const correlationId = crypto.randomUUID();
-
   if (req.method === "OPTIONS") {
-    return corsOk();
+    return new Response("ok", { headers: corsHeaders });
   }
+
+  const correlationId = crypto.randomUUID();
 
   if (req.method !== "POST") {
     return jsonError(

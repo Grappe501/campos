@@ -3,7 +3,7 @@
  * Errors: { error: { code, message }, correlation_id? } — never expose raw DB/internal strings.
  */
 
-import { corsHeaders } from "./volunteer_identity.ts";
+import { corsHeaders } from "./cors.ts";
 
 export function jsonSuccess(
   body: Record<string, unknown>,

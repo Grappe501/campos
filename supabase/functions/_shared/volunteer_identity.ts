@@ -5,11 +5,7 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import type { User } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 
-export const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+export { corsHeaders } from "./cors.ts";
 
 export async function getUserFromRequest(
   req: Request,
