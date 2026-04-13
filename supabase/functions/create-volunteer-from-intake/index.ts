@@ -194,31 +194,46 @@ async function findExistingVolunteer(
   admin: SupabaseClient,
   email: string | null,
   personId: string | null,
+  correlationId?: string,
 ): Promise<VolunteerRow | null> {
   if (email) {
     const e = email.toLowerCase();
-    const { data: v } = await admin
+    const { data: rows, error } = await admin
       .from("volunteers")
       .select(
         "id, onboarding_state, volunteer_status, voter_linkage_status, person_id",
       )
       .eq("email", e)
       .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (v) return v as VolunteerRow;
+      .limit(1);
+    if (error) {
+      log("warn", "findExistingVolunteer email query failed", {
+        correlationId,
+        event: "volunteer_intake_lookup_warn",
+        pg: postgrestErrorForLog(error),
+      });
+    } else if (rows?.[0]) {
+      return rows[0] as VolunteerRow;
+    }
   }
   if (personId) {
-    const { data: v } = await admin
+    const { data: rows, error } = await admin
       .from("volunteers")
       .select(
         "id, onboarding_state, volunteer_status, voter_linkage_status, person_id",
       )
       .eq("person_id", personId)
       .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (v) return v as VolunteerRow;
+      .limit(1);
+    if (error) {
+      log("warn", "findExistingVolunteer person_id query failed", {
+        correlationId,
+        event: "volunteer_intake_lookup_warn",
+        pg: postgrestErrorForLog(error),
+      });
+    } else if (rows?.[0]) {
+      return rows[0] as VolunteerRow;
+    }
   }
   return null;
 }
@@ -435,28 +450,51 @@ Deno.serve(async (req: Request) => {
   let personId: string | null = null;
 
   if (email) {
-    const { data: byEmail } = await supabase
+    const { data: emailRows, error: emailLookupErr } = await supabase
       .from("person_contact_methods")
       .select("person_id")
       .eq("contact_type", "email")
       .eq("contact_value", email.toLowerCase())
-      .maybeSingle();
-    if (byEmail?.person_id) personId = byEmail.person_id;
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (emailLookupErr) {
+      log("warn", "person_contact_methods email lookup failed", {
+        correlationId,
+        event: "volunteer_intake_lookup_warn",
+        pg: postgrestErrorForLog(emailLookupErr),
+      });
+    } else if (emailRows?.[0]?.person_id) {
+      personId = emailRows[0].person_id;
+    }
   }
 
   if (!personId && phone) {
     const normalized = normalizePhone(phone);
-    const { data: byPhone } = await supabase
+    const { data: phoneRows, error: phoneLookupErr } = await supabase
       .from("person_contact_methods")
       .select("person_id")
       .eq("contact_type", "phone")
       .eq("contact_value", normalized)
-      .maybeSingle();
-    if (byPhone?.person_id) personId = byPhone.person_id;
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (phoneLookupErr) {
+      log("warn", "person_contact_methods phone lookup failed", {
+        correlationId,
+        event: "volunteer_intake_lookup_warn",
+        pg: postgrestErrorForLog(phoneLookupErr),
+      });
+    } else if (phoneRows?.[0]?.person_id) {
+      personId = phoneRows[0].person_id;
+    }
   }
 
   // Duplicate volunteer guard (email or person)
-  const existingVol = await findExistingVolunteer(supabase, email, personId);
+  const existingVol = await findExistingVolunteer(
+    supabase,
+    email,
+    personId,
+    correlationId,
+  );
   if (existingVol) {
     try {
       const payload = await buildSuccessPayload(
@@ -580,11 +618,53 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (vErr || !volunteer) {
+    const pgCode =
+      vErr && typeof vErr === "object" && vErr !== null && "code" in vErr
+        ? String((vErr as { code?: string }).code)
+        : "";
+
+    // Unique violation: parallel signups or legacy duplicate emails — reuse existing row.
+    if (pgCode === "23505") {
+      const racedTo = await findExistingVolunteer(
+        supabase,
+        email,
+        personId,
+        correlationId,
+      );
+      if (racedTo) {
+        try {
+          const payload = await buildSuccessPayload(
+            supabase,
+            racedTo,
+            racedTo.person_id,
+            "existing",
+          );
+          if (idemRaw) {
+            await persistIdempotency(supabase, idemRaw, racedTo.id, payload);
+          }
+          log("info", "createVolunteerFromIntake insert conflict reused row", {
+            correlationId,
+            event: "volunteer_intake_unique_race_resolved",
+            volunteerId: racedTo.id,
+          });
+          return jsonSuccess(payload, 200);
+        } catch {
+          return jsonError(
+            "INTERNAL",
+            "Could not load your volunteer profile",
+            500,
+            correlationId,
+          );
+        }
+      }
+    }
+
     log("error", "volunteers insert failed", {
       correlationId,
       event: "volunteer_intake_error",
       stage: "volunteers_insert",
       pg: postgrestErrorForLog(vErr),
+      postgresCode: pgCode || undefined,
     });
     return jsonError(
       "INTERNAL",

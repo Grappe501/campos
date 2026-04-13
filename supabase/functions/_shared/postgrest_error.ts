@@ -19,5 +19,10 @@ export function postgrestErrorForLog(
   if (err.code) out.code = err.code;
   if (err.details) out.details = err.details;
   if (err.hint) out.hint = err.hint;
-  return Object.keys(out).length ? out : undefined;
+  if (Object.keys(out).length) return out;
+  try {
+    return { serialized: JSON.stringify(err) };
+  } catch {
+    return { serialized: String(err) };
+  }
 }

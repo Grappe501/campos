@@ -69,6 +69,14 @@ Product docs inform **what** to model; migration mechanics and schema truth live
 
 ---
 
+## Post-V1 / deferred
+
+| Document | What it covers |
+|----------|----------------|
+| **`post-v1-backlog.md`** | Features explicitly deferred until after V1 stabilization (e.g. candidate branding package system). |
+
+---
+
 ## Related
 
 - Architecture index: [`../architecture/README.md`](../architecture/README.md)  

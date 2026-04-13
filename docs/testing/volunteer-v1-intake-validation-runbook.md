@@ -42,6 +42,13 @@ Use this **on production** (or the exact URL volunteers use) when you need to pr
 - On a **failed** intake, the UI shows an error string. After the pilot hardening pass, messages often include **`(ref: <uuid>)`** at the end.  
 - **Copy the whole message**, especially the **`ref`** value — that matches **`correlation_id`** returned by the Edge API.
 
+### Success responses (HTTP 200) — correlation tracing
+
+- **Error responses** from the Edge Function include **`correlation_id`** in the JSON body when present (same value as **`ref`** in the browser on failures).
+- **Success responses** (HTTP 200) **do not** currently include **`correlation_id`** in the JSON body.
+- **Success-path tracing** therefore relies on **Supabase Dashboard** → **Edge Functions** → **`create-volunteer-from-intake`** → **Logs**: filter by **time window** around the submit; structured log lines include **`correlationId`** and intake events (e.g. `volunteer_intake_created`).
+- This gap is **not** a blocker for V1 intake validation, but operators should use **time + logs** when correlating successful signups.
+
 ### Where to look (server)
 
 - **Supabase Dashboard** → **Edge Functions** → **`create-volunteer-from-intake`** → **Logs**.  
