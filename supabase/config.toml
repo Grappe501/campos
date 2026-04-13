@@ -385,9 +385,25 @@ backend = "postgres"
 [functions.create-volunteer-from-intake]
 verify_jwt = false
 
-# First-task completion for the onboarding slice (anon + Edge Function; tighten with auth/RLS in later phases).
+# Task completion requires a valid Supabase Auth JWT; volunteer_id is derived server-side from email.
 [functions.complete-volunteer-task]
-verify_jwt = false
+verify_jwt = true
+
+# Volunteer + tasks for the signed-in user (email → person → volunteer).
+[functions.get-volunteer-context]
+verify_jwt = true
+
+# Update display-layer preferred_name for the signed-in volunteer only.
+[functions.set-volunteer-preferred-name]
+verify_jwt = true
+
+# Arkansas voter file self-lookup (JWT + service role reads raw_vr only on server).
+[functions.match-volunteer-to-voterfile]
+verify_jwt = true
+
+# Campaign manager mini metrics (JWT + allowlisted auth email; service-role aggregation only).
+[functions.get-volunteer-command-metrics]
+verify_jwt = true
 
 # Experimental features may be deprecated any time
 [experimental]

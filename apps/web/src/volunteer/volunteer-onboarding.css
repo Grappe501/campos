@@ -69,6 +69,18 @@
   color: #555;
 }
 
+.vo-hint--tight {
+  margin-bottom: 0.35rem;
+}
+
+.vo-turnstile-wrap {
+  margin-top: 0.25rem;
+}
+
+.vo-turnstile {
+  min-height: 2.75rem;
+}
+
 .vo-error {
   margin: 0;
   color: #b91c1c;

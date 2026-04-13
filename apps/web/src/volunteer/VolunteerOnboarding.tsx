@@ -1,37 +1,34 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { invokeEdgeFunction } from "../lib/edgeFunctions";
+import { getSupabase } from "../lib/supabaseClient";
+import { IntakeTurnstile } from "./IntakeTurnstile";
+import { VolunteerHome } from "./VolunteerHome";
+import type { VolunteerContext } from "./types";
 import "./volunteer-onboarding.css";
 
 const CREATE_FN = "create-volunteer-from-intake";
-const COMPLETE_FN = "complete-volunteer-task";
+const CONTEXT_FN = "get-volunteer-context";
 
-type Step = "form" | "confirmation" | "task" | "done";
-
-export type FirstTask = {
-  id: number;
-  title: string;
-  description: string | null;
-  task_status: string;
-  created_at: string;
-  volunteer_id: number | null;
-};
+type Step = "form" | "intake_success" | "home" | "no_profile";
 
 type CreateVolunteerResponse = {
   volunteer_id: number;
   person_id: string | null;
-  first_task: FirstTask;
+  first_task: {
+    id: number;
+    title: string;
+    description: string | null;
+    task_status: string;
+    created_at: string;
+    volunteer_id: number | null;
+  };
   status: {
     onboarding_state: string;
     volunteer_status: string;
     voter_linkage_status: string;
   };
-};
-
-type CompleteTaskResponse = {
-  ok: boolean;
-  volunteer_id: number;
-  task_id: number;
-  completed_at: string;
+  intake_result?: "created" | "existing";
 };
 
 function readReferrerFromQuery(): number | null {
@@ -49,8 +46,14 @@ function validateEmail(email: string): boolean {
 export function VolunteerOnboarding() {
   const envUrl = import.meta.env.VITE_SUPABASE_URL;
   const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const turnstileSiteKey =
+    typeof import.meta.env.VITE_TURNSTILE_SITE_KEY === "string"
+      ? import.meta.env.VITE_TURNSTILE_SITE_KEY.trim() || undefined
+      : undefined;
 
   const [step, setStep] = useState<Step>("form");
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,8 +70,20 @@ export function VolunteerOnboarding() {
     number | null
   >(null);
 
-  const [created, setCreated] = useState<CreateVolunteerResponse | null>(null);
-  const [taskCompletedAt, setTaskCompletedAt] = useState<string | null>(null);
+  const [intakeTaskPreview, setIntakeTaskPreview] = useState<{
+    title: string;
+    description: string | null;
+  } | null>(null);
+
+  const [loginEmail, setLoginEmail] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+
+  const [context, setContext] = useState<VolunteerContext | null>(null);
+
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const onTurnstileToken = useCallback((t: string | null) => {
+    setTurnstileToken(t);
+  }, []);
 
   useEffect(() => {
     const ref = readReferrerFromQuery();
@@ -82,6 +97,90 @@ export function VolunteerOnboarding() {
 
   const missingConfig = !opts;
 
+  /** Stable per page load — dedupes double-submit / retries via Edge idempotency. */
+  const intakeIdempotencyKey = useMemo(
+    () =>
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `intake-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`,
+    [],
+  );
+
+  const loadContext = useCallback(
+    async (accessToken: string, options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!opts) return;
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const data = await invokeEdgeFunction<VolunteerContext>(
+          CONTEXT_FN,
+          {},
+          { ...opts, accessToken },
+        );
+        setContext(data);
+        setStep("home");
+        setIntakeTaskPreview(null);
+      } catch (e: unknown) {
+        const err = e as Error & { code?: string };
+        if (silent) {
+          /* Keep showing last good context after task refresh failures. */
+        } else if (err.code === "NO_VOLUNTEER_PROFILE") {
+          setStep("no_profile");
+          setContext(null);
+        } else {
+          setError(err.message || "Could not load your volunteer profile.");
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [opts],
+  );
+
+  const refreshContext = useCallback(async () => {
+    const sb = getSupabase();
+    if (!sb || !opts) return;
+    const {
+      data: { session: s },
+    } = await sb.auth.getSession();
+    if (!s) return;
+    await loadContext(s.access_token, { silent: true });
+  }, [opts, loadContext]);
+
+  useEffect(() => {
+    if (missingConfig) {
+      setAuthReady(true);
+      return;
+    }
+    const sb = getSupabase();
+    if (!sb) {
+      setAuthReady(true);
+      return;
+    }
+
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, sess) => {
+      setSession(sess);
+      if (event === "INITIAL_SESSION") {
+        if (sess) {
+          void loadContext(sess.access_token);
+        }
+        setAuthReady(true);
+        return;
+      }
+      if (sess) {
+        void loadContext(sess.access_token);
+      } else {
+        setContext(null);
+        setStep("form");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [missingConfig, loadContext]);
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -90,13 +189,18 @@ export function VolunteerOnboarding() {
       setError("Please add your first and last name.");
       return;
     }
-    if (email.trim() && !validateEmail(email)) {
-      setError("That email doesn’t look quite right — double-check it?");
+    if (!email.trim() || !validateEmail(email)) {
+      setError("We need a real email so you can sign in and see your task.");
       return;
     }
 
     if (!opts) {
       setError("App configuration is missing. Ask your organizer for help.");
+      return;
+    }
+
+    if (turnstileSiteKey && !turnstileToken?.trim()) {
+      setError("Please complete the verification check above.");
       return;
     }
 
@@ -111,13 +215,20 @@ export function VolunteerOnboarding() {
       lane_interest: laneInterest.trim() || null,
       attribution_source: attributionSource.trim() || null,
       referred_by_volunteer_id: referredByVolunteerId,
+      idempotency_key: intakeIdempotencyKey,
+      turnstile_token: turnstileToken?.trim() ?? null,
     };
 
     setLoading(true);
     invokeEdgeFunction<CreateVolunteerResponse>(CREATE_FN, payload, opts)
       .then((res) => {
-        setCreated(res);
-        setStep("confirmation");
+        setIntakeTaskPreview({
+          title: res.first_task.title,
+          description: res.first_task.description,
+        });
+        setLoginEmail(email.trim());
+        setMagicLinkSent(false);
+        setStep("intake_success");
       })
       .catch((err: Error) => {
         setError(err.message || "Something went wrong. Please try again.");
@@ -125,26 +236,36 @@ export function VolunteerOnboarding() {
       .finally(() => setLoading(false));
   }
 
-  function handleCompleteTask() {
-    if (!created || !opts) return;
+  async function handleSendMagicLink() {
+    const sb = getSupabase();
+    if (!opts || !sb) return;
+    if (!loginEmail.trim() || !validateEmail(loginEmail)) {
+      setError("Enter the same email you used on the form.");
+      return;
+    }
     setError(null);
     setLoading(true);
-    invokeEdgeFunction<CompleteTaskResponse>(
-      COMPLETE_FN,
-      {
-        volunteer_id: created.volunteer_id,
-        task_id: created.first_task.id,
+    const { error: otpErr } = await sb.auth.signInWithOtp({
+      email: loginEmail.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}${window.location.pathname}${window.location.search}`,
       },
-      opts,
-    )
-      .then((res) => {
-        setTaskCompletedAt(res.completed_at);
-        setStep("done");
-      })
-      .catch((err: Error) => {
-        setError(err.message || "Couldn’t mark that complete. Try again?");
-      })
-      .finally(() => setLoading(false));
+    });
+    setLoading(false);
+    if (otpErr) {
+      setError(otpErr.message);
+      return;
+    }
+    setMagicLinkSent(true);
+  }
+
+  async function handleSignOut() {
+    const sb = getSupabase();
+    if (sb) await sb.auth.signOut();
+    setContext(null);
+    setStep("form");
+    setIntakeTaskPreview(null);
+    setMagicLinkSent(false);
   }
 
   if (missingConfig) {
@@ -164,16 +285,64 @@ export function VolunteerOnboarding() {
     );
   }
 
+  if (!authReady) {
+    return (
+      <section className="vo-surface">
+        <p className="vo-lead">Loading…</p>
+      </section>
+    );
+  }
+
+  if (
+    session &&
+    loading &&
+    !context &&
+    step !== "no_profile" &&
+    !error
+  ) {
+    return (
+      <section className="vo-surface">
+        <p className="vo-lead">Loading your volunteer home…</p>
+      </section>
+    );
+  }
+
+  if (session && !context && !loading && error && step !== "no_profile") {
+    return (
+      <section className="vo-surface">
+        <h1 className="vo-title">Couldn’t load your profile</h1>
+        <p className="vo-error">{error}</p>
+        <button
+          type="button"
+          className="vo-button"
+          onClick={() => void handleSignOut()}
+        >
+          Sign out
+        </button>
+      </section>
+    );
+  }
+
   return (
     <div className="vo-root">
-      {step === "form" && (
+      {step === "home" && context && (
+        <VolunteerHome
+          context={context}
+          opts={opts!}
+          onRefresh={refreshContext}
+          onSignOut={handleSignOut}
+        />
+      )}
+
+      {step === "form" && !session && (
         <section className="vo-surface">
           <header className="vo-header">
             <h1 className="vo-title">Step in — we’re building this together</h1>
             <p className="vo-lead">
-              No roster yet? That’s the point. Add your name and how you want to
-              help, and we’ll put your first real action in front of you right
-              away.
+              Tell us who you are and how you’d like to help. We only need a few
+              fields to get started. Next, you’ll sign in with email (we’ll send a
+              link — no password to remember) so your tasks stay private and tied
+              to you.
             </p>
           </header>
 
@@ -199,12 +368,17 @@ export function VolunteerOnboarding() {
               />
             </label>
             <label className="vo-label">
-              Email
+              Email <span className="vo-req">*</span>
+              <span className="vo-hint vo-hint--tight">
+                We’ll send your sign-in link here — use an inbox you can open on
+                this device.
+              </span>
               <input
                 className="vo-input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
                 autoComplete="email"
               />
             </label>
@@ -265,6 +439,18 @@ export function VolunteerOnboarding() {
               </p>
             )}
 
+            {turnstileSiteKey && (
+              <div className="vo-turnstile-wrap">
+                <p className="vo-hint vo-hint--tight">
+                  Quick check — helps keep signups human.
+                </p>
+                <IntakeTurnstile
+                  siteKey={turnstileSiteKey}
+                  onToken={onTurnstileToken}
+                />
+              </div>
+            )}
+
             {error && <p className="vo-error">{error}</p>}
 
             <button className="vo-button" type="submit" disabled={loading}>
@@ -274,92 +460,72 @@ export function VolunteerOnboarding() {
         </section>
       )}
 
-      {step === "confirmation" && created && (
+      {step === "intake_success" && intakeTaskPreview && (
         <section className="vo-surface">
           <header className="vo-header">
-            <h1 className="vo-title">You’re in — welcome</h1>
+            <h1 className="vo-title">You’re on the roster</h1>
             <p className="vo-lead">
-              You’re officially on the roster as volunteer #
-              {created.volunteer_id}. This campaign doesn’t grow on autopilot;
-              it grows because people like you say yes to one clear next step.
-              Here’s yours.
+              Your info is saved. One more step: open the sign-in link we email
+              you (same address as below). That keeps your volunteer space
+              private — only you can open it from your inbox.
             </p>
           </header>
 
           <div className="vo-card">
-            <p className="vo-strong">Your first task</p>
-            <h2 className="vo-task-title">{created.first_task.title}</h2>
-            {created.first_task.description && (
-              <p className="vo-task-desc">{created.first_task.description}</p>
+            <p className="vo-strong">Your first task when you’re in</p>
+            <h2 className="vo-task-title">{intakeTaskPreview.title}</h2>
+            {intakeTaskPreview.description && (
+              <p className="vo-task-desc">{intakeTaskPreview.description}</p>
             )}
           </div>
 
           <p className="vo-next">
-            When you’re ready, open the task below, do the thing, and mark it
-            complete. That’s how we turn interest into momentum — one person at a
-            time.
+            {magicLinkSent
+              ? "We sent an email — open it and tap the link. You can close this tab after you’re signed in; bookmark this page if you want to come back the same way."
+              : "Request a link below. It expires after a while for security — if it does, come back here and send a fresh one."}
           </p>
 
-          <button
-            className="vo-button"
-            type="button"
-            onClick={() => setStep("task")}
-          >
-            Show me the task
-          </button>
-        </section>
-      )}
-
-      {step === "task" && created && (
-        <section className="vo-surface">
-          <header className="vo-header">
-            <h1 className="vo-title">Your first move</h1>
-            <p className="vo-lead">
-              Small, concrete, yours. Finish this and you’ve already helped this
-              team exist.
-            </p>
-          </header>
-
-          <div className="vo-card vo-card-emph">
-            <h2 className="vo-task-title">{created.first_task.title}</h2>
-            {created.first_task.description && (
-              <p className="vo-task-desc">{created.first_task.description}</p>
-            )}
-          </div>
+          <label className="vo-label">
+            Email (same as you used above)
+            <input
+              className="vo-input"
+              type="email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </label>
 
           {error && <p className="vo-error">{error}</p>}
 
           <button
             className="vo-button"
             type="button"
-            onClick={handleCompleteTask}
+            onClick={() => void handleSendMagicLink()}
             disabled={loading}
           >
-            {loading ? "Saving…" : "I did it — mark complete"}
+            {loading ? "Sending…" : "Email me a sign-in link"}
           </button>
         </section>
       )}
 
-      {step === "done" && created && (
+      {step === "no_profile" && (
         <section className="vo-surface">
           <header className="vo-header">
-            <h1 className="vo-title">Nice work — that counts</h1>
+            <h1 className="vo-title">We’re still connecting your profile</h1>
             <p className="vo-lead">
-              You turned “I’m interested” into something real. The team is a
-              little stronger because you showed up. When there’s a next step,
-              you’ll hear it here — and you can always bring someone along who
-              cares like you do.
+              This login doesn’t match a volunteer signup yet. Try the same
+              email you used on the intake form, or contact your organizer — we
+              can sort it out without any fuss.
             </p>
           </header>
-          <p className="vo-muted">
-            Recorded: <strong>{created.first_task.title}</strong>
-            {taskCompletedAt && (
-              <>
-                {" "}
-                · {new Date(taskCompletedAt).toLocaleString()}
-              </>
-            )}
-          </p>
+          <button
+            className="vo-button"
+            type="button"
+            onClick={() => void handleSignOut()}
+          >
+            Sign out and try again
+          </button>
         </section>
       )}
     </div>

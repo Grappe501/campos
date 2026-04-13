@@ -5113,11 +5113,17 @@ export type Database = {
           onboarding_state: string
           person_id: string | null
           phone: string | null
+          preferred_name: string | null
           preference_digital_in_person: string | null
           referred_by_volunteer_id: number | null
           updated_at: string
           volunteer_status: string
           voter_linkage_status: string
+          voter_summary_city: string | null
+          voter_summary_county: string | null
+          voter_summary_districts: string | null
+          voter_summary_precinct: string | null
+          voter_summary_registration_label: string | null
         }
         Insert: {
           attribution_source?: string | null
@@ -5133,11 +5139,17 @@ export type Database = {
           onboarding_state?: string
           person_id?: string | null
           phone?: string | null
+          preferred_name?: string | null
           preference_digital_in_person?: string | null
           referred_by_volunteer_id?: number | null
           updated_at?: string
           volunteer_status?: string
           voter_linkage_status?: string
+          voter_summary_city?: string | null
+          voter_summary_county?: string | null
+          voter_summary_districts?: string | null
+          voter_summary_precinct?: string | null
+          voter_summary_registration_label?: string | null
         }
         Update: {
           attribution_source?: string | null
@@ -5153,11 +5165,17 @@ export type Database = {
           onboarding_state?: string
           person_id?: string | null
           phone?: string | null
+          preferred_name?: string | null
           preference_digital_in_person?: string | null
           referred_by_volunteer_id?: number | null
           updated_at?: string
           volunteer_status?: string
           voter_linkage_status?: string
+          voter_summary_city?: string | null
+          voter_summary_county?: string | null
+          voter_summary_districts?: string | null
+          voter_summary_precinct?: string | null
+          voter_summary_registration_label?: string | null
         }
         Relationships: [
           {

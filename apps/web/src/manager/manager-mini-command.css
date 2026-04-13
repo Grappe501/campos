@@ -1,0 +1,171 @@
+.mmc-root {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2rem;
+  font-family: system-ui, sans-serif;
+  color: #18181b;
+}
+
+.mmc-header {
+  margin-bottom: 1.25rem;
+}
+
+.mmc-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.mmc-sub {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #52525b;
+}
+
+.mmc-muted {
+  color: #71717a;
+  font-size: 0.875rem;
+}
+
+.mmc-compact {
+  font-size: 0.75rem;
+}
+
+.mmc-banner {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.mmc-banner-soft {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+}
+
+.mmc-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.mmc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mmc-card {
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+.mmc-card-wide {
+  max-width: 28rem;
+}
+
+.mmc-metric-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #71717a;
+  margin: 0 0 0.25rem;
+}
+
+.mmc-hint {
+  font-size: 0.7rem;
+  color: #a1a1aa;
+  margin: 0 0 0.35rem;
+}
+
+.mmc-metric-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.mmc-section-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #71717a;
+  margin: 0 0 0.5rem;
+}
+
+.mmc-linkage-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #71717a;
+  line-height: 1.4;
+}
+
+.mmc-linkage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.mmc-linkage-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f4f4f5;
+}
+
+.mmc-linkage-list li:last-child {
+  border-bottom: none;
+}
+
+.mmc-btn {
+  font: inherit;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+  cursor: pointer;
+}
+
+.mmc-btn:hover {
+  background: #fafafa;
+}
+
+.mmc-btn-primary {
+  background: #18181b;
+  color: #fff;
+  border-color: #18181b;
+}
+
+.mmc-btn-primary:hover {
+  background: #27272a;
+}
+
+.mmc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.mmc-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.mmc-input {
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 0.375rem;
+}

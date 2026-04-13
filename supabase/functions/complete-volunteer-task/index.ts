@@ -1,30 +1,18 @@
 /**
  * completeVolunteerTask — Volunteer Command V1
- * Records first-task completion via service role (never exposed to privileged client writes).
+ * Authenticated only: JWT → email → volunteer_id; task_id from body; writes via service role.
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
-
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { corsOk, jsonError, jsonSuccess } from "../_shared/edge_api.ts";
+import {
+  getUserFromRequest,
+  resolveVolunteerIdForEmail,
+} from "../_shared/volunteer_identity.ts";
 
 type CompleteBody = {
-  volunteer_id: number;
   task_id: number;
 };
-
-function jsonResponse(
-  body: Record<string, unknown>,
-  status = 200,
-): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
 
 function log(
   level: "info" | "warn" | "error",
@@ -44,53 +32,76 @@ function log(
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return corsOk();
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    return jsonError("METHOD_NOT_ALLOWED", "Method not allowed", 405);
   }
+
+  const correlationId = crypto.randomUUID();
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) {
-    log("error", "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-    return jsonResponse({ error: "Server misconfiguration" }, 500);
+  if (!supabaseUrl || !anonKey || !serviceKey) {
+    log("error", "Missing Supabase env", {
+      correlationId,
+      event: "complete_task_config_error",
+    });
+    return jsonError(
+      "SERVER_MISCONFIGURATION",
+      "Service temporarily unavailable",
+      500,
+      correlationId,
+    );
   }
 
-  const supabase = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const user = await getUserFromRequest(req, supabaseUrl, anonKey);
+  if (!user) {
+    return jsonError("UNAUTHORIZED", "Unauthorized", 401, correlationId);
+  }
 
   let body: CompleteBody;
   try {
     body = (await req.json()) as CompleteBody;
   } catch {
-    return jsonResponse({ error: "Invalid JSON body" }, 400);
+    return jsonError("INVALID_JSON", "Invalid JSON body", 400, correlationId);
   }
 
-  const volunteerId = Number(body.volunteer_id);
   const taskId = Number(body.task_id);
-  if (
-    !Number.isInteger(volunteerId) ||
-    volunteerId < 1 ||
-    !Number.isInteger(taskId) ||
-    taskId < 1
-  ) {
-    return jsonResponse(
-      { error: "volunteer_id and task_id must be positive integers" },
+  if (!Number.isInteger(taskId) || taskId < 1) {
+    return jsonError(
+      "VALIDATION_ERROR",
+      "task_id must be a positive integer",
       400,
+      correlationId,
     );
   }
 
-  const correlationId = crypto.randomUUID();
-  log("info", "completeVolunteerTask start", {
-    correlationId,
-    volunteerId,
-    taskId,
+  const admin = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: task, error: taskErr } = await supabase
+  const volunteerId = await resolveVolunteerIdForEmail(admin, user.email!);
+  if (volunteerId === null) {
+    return jsonError(
+      "NO_VOLUNTEER_PROFILE",
+      "No volunteer profile is linked to this account. Use the same email you used to sign up.",
+      404,
+      correlationId,
+    );
+  }
+
+  log("info", "completeVolunteerTask start", {
+    correlationId,
+    event: "volunteer_task_complete_start",
+    volunteerId,
+    taskId,
+    userId: user.id,
+  });
+
+  const { data: task, error: taskErr } = await admin
     .from("volunteer_tasks")
     .select("id, volunteer_id, task_status")
     .eq("id", taskId)
@@ -99,25 +110,37 @@ Deno.serve(async (req: Request) => {
   if (taskErr) {
     log("error", "volunteer_tasks lookup failed", {
       correlationId,
-      error: taskErr.message,
+      event: "complete_task_error",
+      code: "task_lookup",
     });
-    return jsonResponse({ error: "Could not load task" }, 500);
+    return jsonError(
+      "INTERNAL",
+      "Could not load task",
+      500,
+      correlationId,
+    );
   }
 
   if (!task) {
-    return jsonResponse({ error: "Task not found" }, 404);
+    return jsonError("NOT_FOUND", "Task not found", 404, correlationId);
   }
 
   if (task.volunteer_id !== volunteerId) {
     log("warn", "task volunteer mismatch", {
       correlationId,
+      event: "complete_task_forbidden",
       taskVolunteerId: task.volunteer_id,
-      requestedVolunteerId: volunteerId,
+      sessionVolunteerId: volunteerId,
     });
-    return jsonResponse({ error: "Task does not belong to this volunteer" }, 403);
+    return jsonError(
+      "FORBIDDEN",
+      "This task is not assigned to you",
+      403,
+      correlationId,
+    );
   }
 
-  const { data: existing, error: exErr } = await supabase
+  const { data: existing, error: exErr } = await admin
     .from("volunteer_task_completions")
     .select("id, completed_at")
     .eq("task_id", taskId)
@@ -127,9 +150,15 @@ Deno.serve(async (req: Request) => {
   if (exErr) {
     log("error", "completion lookup failed", {
       correlationId,
-      error: exErr.message,
+      event: "complete_task_error",
+      code: "completion_lookup",
     });
-    return jsonResponse({ error: "Could not verify completion" }, 500);
+    return jsonError(
+      "INTERNAL",
+      "Could not verify completion",
+      500,
+      correlationId,
+    );
   }
 
   let completedAt: string;
@@ -138,10 +167,11 @@ Deno.serve(async (req: Request) => {
     completedAt = existing.completed_at;
     log("info", "completeVolunteerTask idempotent", {
       correlationId,
+      event: "volunteer_task_complete_idempotent",
       completionId: existing.id,
     });
   } else {
-    const { data: inserted, error: insErr } = await supabase
+    const { data: inserted, error: insErr } = await admin
       .from("volunteer_task_completions")
       .insert({
         task_id: taskId,
@@ -153,15 +183,21 @@ Deno.serve(async (req: Request) => {
     if (insErr || !inserted) {
       log("error", "volunteer_task_completions insert failed", {
         correlationId,
-        error: insErr?.message,
+        event: "complete_task_error",
+        code: "completion_insert",
       });
-      return jsonResponse({ error: "Could not record completion" }, 500);
+      return jsonError(
+        "INTERNAL",
+        "Could not record completion",
+        500,
+        correlationId,
+      );
     }
     completedAt = inserted.completed_at;
   }
 
   if (task.task_status !== "completed") {
-    const { error: updErr } = await supabase
+    const { error: updErr } = await admin
       .from("volunteer_tasks")
       .update({ task_status: "completed" })
       .eq("id", taskId);
@@ -169,6 +205,7 @@ Deno.serve(async (req: Request) => {
     if (updErr) {
       log("warn", "volunteer_tasks status update failed", {
         correlationId,
+        event: "complete_task_warn",
         error: updErr.message,
       });
     }
@@ -176,14 +213,14 @@ Deno.serve(async (req: Request) => {
 
   log("info", "completeVolunteerTask success", {
     correlationId,
+    event: "volunteer_task_completed",
     volunteerId,
     taskId,
     completedAt,
   });
 
-  return jsonResponse({
+  return jsonSuccess({
     ok: true,
-    volunteer_id: volunteerId,
     task_id: taskId,
     completed_at: completedAt,
   });
