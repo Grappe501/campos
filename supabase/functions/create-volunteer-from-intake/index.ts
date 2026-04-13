@@ -12,6 +12,7 @@ import {
   V1_VOTER_CONFIRM_TASK_TITLE,
 } from "../_shared/volunteer_v1_tasks.ts";
 import { timingSafeEqualString } from "../_shared/timing_safe_string.ts";
+import { postgrestErrorForLog } from "../_shared/postgrest_error.ts";
 // TEMP: Turnstile disabled for V1 field testing — re-enable import + call below after field validation
 // import { verifyTurnstileIfConfigured } from "../_shared/turnstile_verify.ts";
 
@@ -488,6 +489,9 @@ Deno.serve(async (req: Request) => {
         first_name: firstName,
         last_name: lastName,
         is_volunteer: true,
+        is_donor: false,
+        is_supporter: false,
+        is_voter: false,
         status: "active",
       })
       .select("id")
@@ -497,7 +501,8 @@ Deno.serve(async (req: Request) => {
       log("error", "people insert failed", {
         correlationId,
         event: "volunteer_intake_error",
-        code: "people_insert",
+        stage: "people_insert",
+        pg: postgrestErrorForLog(pErr),
       });
       return jsonError(
         "INTERNAL",
@@ -578,7 +583,8 @@ Deno.serve(async (req: Request) => {
     log("error", "volunteers insert failed", {
       correlationId,
       event: "volunteer_intake_error",
-      code: "volunteers_insert",
+      stage: "volunteers_insert",
+      pg: postgrestErrorForLog(vErr),
     });
     return jsonError(
       "INTERNAL",
@@ -606,7 +612,8 @@ Deno.serve(async (req: Request) => {
       correlationId,
       volunteerId: vRow.id,
       event: "volunteer_intake_error",
-      code: "task_insert",
+      stage: "task_insert",
+      pg: postgrestErrorForLog(tErr),
     });
     return jsonError(
       "INTERNAL",

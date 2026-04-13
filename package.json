@@ -5,6 +5,16 @@
   "scripts": {
     "build": "npm run build -w @campos/web",
     "dev": "npm run dev -w @campos/web",
-    "env:ingest": "npm run env:ingest -w @campos/web"
+    "env:ingest": "npm run env:ingest -w @campos/web",
+    "verify:web": "npm run build -w @campos/web",
+    "db": "npx supabase@latest",
+    "db:start": "npx supabase@latest start",
+    "db:stop": "npx supabase@latest stop",
+    "db:reset": "npx supabase@latest db reset",
+    "db:lint": "npx supabase@latest db lint",
+    "db:migration:list": "npx supabase@latest migration list"
+  },
+  "devDependencies": {
+    "supabase": "^2.90.0"
   }
 }

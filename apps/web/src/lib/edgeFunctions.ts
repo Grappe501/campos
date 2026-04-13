@@ -11,6 +11,12 @@ export type EdgeInvokeOptions = {
   accessToken?: string | null;
 };
 
+/** Thrown by {@link invokeEdgeFunction} on non-2xx; includes server correlation id when present. */
+export type EdgeInvokeError = Error & {
+  code?: string;
+  correlationId?: string;
+};
+
 export async function invokeEdgeFunction<T>(
   functionName: string,
   body: unknown,
@@ -34,11 +40,18 @@ export async function invokeEdgeFunction<T>(
 
   const data: unknown = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = parseEdgeError(data, res.statusText);
-    const err = new Error(msg || `Request failed (${res.status})`) as Error & {
-      code?: string;
-    };
     const d = data as Record<string, unknown> | null;
+    const correlationId =
+      typeof d?.correlation_id === "string" && d.correlation_id.trim()
+        ? d.correlation_id.trim()
+        : undefined;
+    const baseMsg = parseEdgeError(data, res.statusText);
+    const msg = appendCorrelationRef(
+      baseMsg || `Request failed (${res.status})`,
+      correlationId,
+    );
+    const err = new Error(msg) as EdgeInvokeError;
+    err.correlationId = correlationId;
     const nested = d?.error;
     if (
       typeof nested === "object" &&
@@ -52,6 +65,13 @@ export async function invokeEdgeFunction<T>(
     throw err;
   }
   return data as T;
+}
+
+function appendCorrelationRef(message: string, correlationId?: string): string {
+  if (!correlationId?.trim()) return message;
+  const ref = correlationId.trim();
+  if (message.includes(ref)) return message;
+  return `${message} (ref: ${ref})`;
 }
 
 function parseEdgeError(data: unknown, fallback: string): string {
