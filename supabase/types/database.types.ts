@@ -4900,6 +4900,7 @@ export type Database = {
           id: string
           last_name: string
           notes: string | null
+          person_id: string | null
           phone: string
           source: string
           zip_code: string
@@ -4918,6 +4919,7 @@ export type Database = {
           id?: string
           last_name: string
           notes?: string | null
+          person_id?: string | null
           phone: string
           source?: string
           zip_code: string
@@ -4936,11 +4938,20 @@ export type Database = {
           id?: string
           last_name?: string
           notes?: string | null
+          person_id?: string | null
           phone?: string
           source?: string
           zip_code?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "volunteer_signups_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       volunteer_task_completions: {
         Row: {
@@ -5089,45 +5100,70 @@ export type Database = {
       }
       volunteers: {
         Row: {
+          attribution_source: string | null
+          availability_summary: string | null
           county_id: number | null
           created_at: string
           email: string | null
           first_name: string | null
           id: number
+          lane_interest: string | null
           last_name: string | null
           notes: string | null
-          onboarding_status: string
+          onboarding_state: string
+          person_id: string | null
           phone: string | null
+          preference_digital_in_person: string | null
           updated_at: string
           volunteer_status: string
+          voter_linkage_status: string
         }
         Insert: {
+          attribution_source?: string | null
+          availability_summary?: string | null
           county_id?: number | null
           created_at?: string
           email?: string | null
           first_name?: string | null
           id?: number
+          lane_interest?: string | null
           last_name?: string | null
           notes?: string | null
-          onboarding_status?: string
+          onboarding_state?: string
+          person_id?: string | null
           phone?: string | null
+          preference_digital_in_person?: string | null
           updated_at?: string
           volunteer_status?: string
+          voter_linkage_status?: string
         }
         Update: {
+          attribution_source?: string | null
+          availability_summary?: string | null
           county_id?: number | null
           created_at?: string
           email?: string | null
           first_name?: string | null
           id?: number
+          lane_interest?: string | null
           last_name?: string | null
           notes?: string | null
-          onboarding_status?: string
+          onboarding_state?: string
+          person_id?: string | null
           phone?: string | null
+          preference_digital_in_person?: string | null
           updated_at?: string
           volunteer_status?: string
+          voter_linkage_status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "volunteers_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "volunteers_county_id_fkey"
             columns: ["county_id"]

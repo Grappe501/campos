@@ -1,0 +1,9 @@
+# Netlify builds the web UI from the repo root (GitHub integration).
+# Set Supabase anon URL/key in Netlify → Site → Environment variables (VITE_*).
+
+[build]
+  command = "npm ci && npm run build"
+  publish = "apps/web/dist"
+
+[build.environment]
+  NODE_VERSION = "20"

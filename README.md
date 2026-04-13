@@ -12,6 +12,12 @@ This repository is intentionally scaffolded as a multi-package workspace so prod
 - `docs/`: architecture, product notes, db notes, prompts, and decision records
 - `scripts/`: repo automation scripts
 
+## Netlify (UI from GitHub)
+
+- **Build command:** `npm ci && npm run build` (see root `netlify.toml`).
+- **Publish directory:** `apps/web/dist`.
+- **Environment:** set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Netlify site settings (browser-safe with RLS). Do not put service-role keys in the client.
+
 ## Principles
 
 - No secrets in git; use `.env` locally and keep `.env.example` up to date.
