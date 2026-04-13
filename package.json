@@ -4,6 +4,7 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "build": "npm run build -w @campos/web",
-    "dev": "npm run dev -w @campos/web"
+    "dev": "npm run dev -w @campos/web",
+    "env:ingest": "npm run env:ingest -w @campos/web"
   }
 }

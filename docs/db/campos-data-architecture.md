@@ -1,6 +1,6 @@
 # CAMPOS data architecture (planning)
 
-This document describes **how data layers fit together** in CAMPOS on **Supabase/Postgres**, assuming the **primary project is `peoplebase`** (project ref `qnusnnacemxlqencdqkx`) and the existing schema foundation documented in `schema_inventory.md` and `domain_map.md`. It is **planning-level**: no SQL or migrations here—those follow **migration-first** discipline once a baseline migration is captured (`refactor_backlog.md`).
+This document describes **how data layers fit together** in CAMPOS on **Supabase/Postgres**, assuming the **primary project is `peoplebase`** and the **project ref** is supplied through **environment/configuration** (never as a hardcoded literal in tracked files). It assumes the existing schema foundation documented in `schema_inventory.md` and `domain_map.md`. It is **planning-level**: no SQL or migrations here—those follow **migration-first** discipline once a baseline migration is captured (`refactor_backlog.md`).
 
 **Ground truth from existing docs**
 

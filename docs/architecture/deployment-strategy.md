@@ -61,7 +61,7 @@ This document describes **how code moves from repo to production**, how **enviro
 
 ## Supabase project alignment
 
-- **Primary** project: **peoplebase** (ref `qnusnnacemxlqencdqkx`) for production-aligned work; **separate** dev/staging projects recommended so **mistakes** do not hit live data.  
+- **Primary** project: **peoplebase** for production-aligned work; the Supabase **project ref** (e.g. `<SUPABASE_PROJECT_REF>`) must come from **environment or dashboard**—never hardcode real refs in tracked files. **Separate** dev/staging projects recommended so **mistakes** do not hit live data.  
 - **Link** CLI to the correct project; **document** which branch deploys to which Netlify **context** (production vs staging).
 
 ---

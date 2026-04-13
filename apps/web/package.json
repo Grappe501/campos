@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "env:ingest": "node scripts/ingest-env.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",

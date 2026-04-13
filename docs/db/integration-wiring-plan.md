@@ -2,7 +2,7 @@
 
 This document describes **how Volunteer Command must connect** to other CAMPOS domains on Supabase **conceptually**—using existing tables where possible (`schema_inventory.md`, `domain_map.md`)—and the **engineering rules** that apply to **all** integrations (Edge Functions, service layers, audit, secrets).
 
-**Primary project:** Supabase **`peoplebase`** (ref `qnusnnacemxlqencdqkx`). Connection secrets stay in environment config only—**not** in the repo.
+**Primary project:** Supabase **`peoplebase`**. The project ref (e.g. `<SUPABASE_PROJECT_REF>`) and connection secrets stay in **environment config only**—**not** in the repo.
 
 ---
 
