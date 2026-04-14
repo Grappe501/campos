@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { invokeEdgeFunction } from "../lib/edgeFunctions";
+import { getEmailRedirectUrl } from "../lib/authRedirect";
 import { getSupabase } from "../lib/supabaseClient";
 import "./manager-mini-command.css";
 
@@ -113,9 +114,7 @@ export function ManagerMiniCommand() {
     if (!sb) return;
     setState({ kind: "loading" });
     const redirect =
-      typeof window !== "undefined"
-        ? `${window.location.origin}${window.location.pathname}${window.location.search}`
-        : undefined;
+      typeof window !== "undefined" ? getEmailRedirectUrl() : undefined;
     const { error } = await sb.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: redirect },

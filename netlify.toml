@@ -7,3 +7,5 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Magic links must return volunteers to the deployed host (not localhost).
+  VITE_APP_ORIGIN = "https://campose.netlify.app"

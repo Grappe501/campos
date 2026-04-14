@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { getEmailRedirectUrl } from "../lib/authRedirect";
 import { invokeEdgeFunction } from "../lib/edgeFunctions";
 import { getSupabase } from "../lib/supabaseClient";
 // TEMP: Turnstile disabled for V1 field testing — re-enable: import { IntakeTurnstile } from "./IntakeTurnstile";
@@ -235,7 +236,7 @@ export function VolunteerOnboarding() {
     const { error: otpErr } = await sb.auth.signInWithOtp({
       email: loginEmail.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}${window.location.pathname}${window.location.search}`,
+        emailRedirectTo: getEmailRedirectUrl(),
       },
     });
     setLoading(false);
