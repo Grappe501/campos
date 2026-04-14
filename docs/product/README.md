@@ -2,6 +2,12 @@
 
 Product doctrine, **campaign domain maps**, **Volunteer Command** specs, and **build/roadmap** documents. Navigation only—see individual files for content.
 
+**Current status**
+
+- V1 intake/auth gate: PASS
+- Current validation phase: authenticated onboarding continuation
+- Next target: voter record confirmation flow
+
 ---
 
 ## Campaign-wide product maps

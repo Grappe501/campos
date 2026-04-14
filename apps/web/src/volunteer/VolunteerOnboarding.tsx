@@ -155,20 +155,41 @@ export function VolunteerOnboarding() {
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((event, sess) => {
-      setSession(sess);
-      if (event === "INITIAL_SESSION") {
+      void (async () => {
+        /**
+         * PKCE + magic-link return: `INITIAL_SESSION` can fire before the
+         * callback/hash exchange finishes, so `sess` is null while a session
+         * is still being established. Re-read from the client and allow a short
+         * settle window before we treat the user as signed out (avoids bouncing
+         * to the intake form and clears stale `null` transitions).
+         */
+        if (event === "INITIAL_SESSION") {
+          let effective = sess;
+          if (!effective) {
+            const { data: d1 } = await sb.auth.getSession();
+            effective = d1.session;
+          }
+          if (!effective) {
+            await new Promise((r) => setTimeout(r, 150));
+            const { data: d2 } = await sb.auth.getSession();
+            effective = d2.session;
+          }
+          setSession(effective);
+          if (effective) {
+            void loadContext(effective.access_token);
+          }
+          setAuthReady(true);
+          return;
+        }
+
+        setSession(sess);
         if (sess) {
           void loadContext(sess.access_token);
+        } else if (event === "SIGNED_OUT") {
+          setContext(null);
+          setStep("form");
         }
-        setAuthReady(true);
-        return;
-      }
-      if (sess) {
-        void loadContext(sess.access_token);
-      } else {
-        setContext(null);
-        setStep("form");
-      }
+      })();
     });
 
     return () => subscription.unsubscribe();
