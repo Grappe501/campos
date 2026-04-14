@@ -67,14 +67,17 @@ export async function invokeEdgeFunction<T>(
   return data as T;
 }
 
-function appendCorrelationRef(message: string, correlationId?: string): string {
+export function appendCorrelationRef(
+  message: string,
+  correlationId?: string,
+): string {
   if (!correlationId?.trim()) return message;
   const ref = correlationId.trim();
   if (message.includes(ref)) return message;
   return `${message} (ref: ${ref})`;
 }
 
-function parseEdgeError(data: unknown, fallback: string): string {
+export function parseEdgeError(data: unknown, fallback: string): string {
   if (typeof data !== "object" || data === null) return fallback;
   const o = data as Record<string, unknown>;
   if (typeof o.message === "string" && o.message.trim()) return o.message;

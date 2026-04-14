@@ -1,7 +1,12 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getEmailRedirectUrl } from "../lib/authRedirect";
-import { invokeEdgeFunction } from "../lib/edgeFunctions";
+import {
+  appendCorrelationRef,
+  invokeEdgeFunction,
+  parseEdgeError,
+  type EdgeInvokeError,
+} from "../lib/edgeFunctions";
 import { getSupabase } from "../lib/supabaseClient";
 // TEMP: Turnstile disabled for V1 field testing — re-enable: import { IntakeTurnstile } from "./IntakeTurnstile";
 import { VolunteerHome } from "./VolunteerHome";
@@ -100,18 +105,51 @@ export function VolunteerOnboarding() {
   );
 
   const loadContext = useCallback(
-    async (accessToken: string, options?: { silent?: boolean }) => {
+    async (token: string, options?: { silent?: boolean }) => {
       const silent = options?.silent ?? false;
       if (!opts) return;
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const data = await invokeEdgeFunction<VolunteerContext>(
-          CONTEXT_FN,
-          {},
-          { ...opts, accessToken },
-        );
-        setContext(data);
+        console.log("SENDING TOKEN TO CONTEXT:", token);
+        const base = opts.supabaseUrl.replace(/\/$/, "");
+        const url = `${base}/functions/v1/${CONTEXT_FN}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            apikey: opts.anonKey,
+          },
+          body: JSON.stringify({}),
+        });
+        const data: unknown = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const d = data as Record<string, unknown> | null;
+          const correlationId =
+            typeof d?.correlation_id === "string" && d.correlation_id.trim()
+              ? d.correlation_id.trim()
+              : undefined;
+          const baseMsg = parseEdgeError(data, res.statusText);
+          const msg = appendCorrelationRef(
+            baseMsg || `Request failed (${res.status})`,
+            correlationId,
+          );
+          const err = new Error(msg) as EdgeInvokeError;
+          err.correlationId = correlationId;
+          const nested = d?.error;
+          if (
+            typeof nested === "object" &&
+            nested !== null &&
+            typeof (nested as { code?: string }).code === "string"
+          ) {
+            err.code = (nested as { code: string }).code;
+          } else if (typeof nested === "string" && nested.trim()) {
+            err.code = nested;
+          }
+          throw err;
+        }
+        setContext(data as VolunteerContext);
         setStep("home");
         setIntakeTaskPreview(null);
       } catch (e: unknown) {
@@ -158,25 +196,45 @@ export function VolunteerOnboarding() {
       void (async () => {
         /**
          * PKCE + magic-link return: `INITIAL_SESSION` can fire before the
-         * callback/hash exchange finishes, so `sess` is null while a session
-         * is still being established. Re-read from the client and allow a short
-         * settle window before we treat the user as signed out (avoids bouncing
-         * to the intake form and clears stale `null` transitions).
+         * callback/hash exchange finishes. Poll `getSession()` briefly so we
+         * do not set `authReady` until the session is resolved or the poll
+         * exhausts (avoids bouncing to the intake form while still signing in).
          */
         if (event === "INITIAL_SESSION") {
-          let effective = sess;
+          let effective: Session | null = sess;
           if (!effective) {
-            const { data: d1 } = await sb.auth.getSession();
-            effective = d1.session;
+            for (let i = 0; i < 5; i++) {
+              const { data } = await sb.auth.getSession();
+              effective = data.session;
+              if (effective) break;
+              if (i < 4) {
+                await new Promise((r) => setTimeout(r, 200));
+              }
+            }
           }
-          if (!effective) {
-            await new Promise((r) => setTimeout(r, 150));
-            const { data: d2 } = await sb.auth.getSession();
-            effective = d2.session;
-          }
-          setSession(effective);
           if (effective) {
-            void loadContext(effective.access_token);
+            /**
+             * Right after PKCE/magic-link, `getSession()` can return a row before
+             * the access JWT is accepted by Edge (invalid JWT). Refresh once so
+             * `get-volunteer-context` gets a verifier-ready token.
+             */
+            const { data: refreshed, error: refreshErr } =
+              await sb.auth.refreshSession();
+            const ready = refreshed.session ?? effective;
+            if (refreshErr && import.meta.env.DEV) {
+              console.warn("refreshSession after magic link:", refreshErr.message);
+            }
+            setSession(ready);
+            const { data: current } = await sb.auth.getSession();
+            const token = current.session?.access_token;
+            if (!token) {
+              console.warn("No access token available for context load");
+              setAuthReady(true);
+              return;
+            }
+            await loadContext(token);
+          } else {
+            setSession(null);
           }
           setAuthReady(true);
           return;
@@ -184,7 +242,16 @@ export function VolunteerOnboarding() {
 
         setSession(sess);
         if (sess) {
-          void loadContext(sess.access_token);
+          if (event === "SIGNED_IN") {
+            await sb.auth.refreshSession();
+          }
+          const { data: current } = await sb.auth.getSession();
+          const nextToken = current.session?.access_token;
+          if (!nextToken) {
+            console.warn("No access token available for context load");
+            return;
+          }
+          void loadContext(nextToken);
         } else if (event === "SIGNED_OUT") {
           setContext(null);
           setStep("form");
