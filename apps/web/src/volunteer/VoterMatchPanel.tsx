@@ -52,6 +52,12 @@ type Props = {
   opts: EdgeInvokeOptions;
   onRefresh: () => Promise<void>;
   onDoneMessage: (message: string) => void;
+  /**
+   * `embedded`: shorter intro; heading lives in {@link VolunteerHome} (less duplicate chrome).
+   */
+  presentation?: "default" | "embedded";
+  /** Dev fixture shell only — reminds that actions do not persist without a real session. */
+  showDevFixtureHint?: boolean;
 };
 
 export function VoterMatchPanel({
@@ -59,6 +65,8 @@ export function VoterMatchPanel({
   opts,
   onRefresh,
   onDoneMessage,
+  presentation = "default",
+  showDevFixtureHint = false,
 }: Props) {
   if (task.title !== VOTER_CONFIRM_TASK_TITLE) {
     return null;
@@ -74,6 +82,8 @@ export function VoterMatchPanel({
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [resultNote, setResultNote] = useState<string | null>(null);
+
+  const embedded = presentation === "embedded";
 
   const runLookup = useCallback(
     async (e?: FormEvent) => {
@@ -111,11 +121,11 @@ export function VoterMatchPanel({
             await onRefresh();
           }
         } catch (err: unknown) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "We couldn’t complete that step. Try again in a moment.",
-        );
+          setError(
+            err instanceof Error
+              ? err.message
+              : "We couldn’t complete that step. Try again in a moment.",
+          );
         } finally {
           setLoading(false);
         }
@@ -233,26 +243,40 @@ export function VoterMatchPanel({
   );
 
   return (
-    <div className="vh-voter">
-      <div className="vh-card">
-        <h3 className="vh-task-title">{task.title}</h3>
-        {task.description && (
-          <p className="vh-task-desc">{task.description}</p>
-        )}
-        <p className="vh-voter-why">
-          This step links you to a public voter record so we can place you in
-          the right local context — we never show your full street address here.
+    <div className={`vh-voter${embedded ? " vh-voter--embedded" : ""}`}>
+      {showDevFixtureHint && (
+        <p className="vh-voter-fixture-hint" role="note">
+          <strong>Preview only.</strong> Buttons here do not save or change data
+          until you use a real signed-in session — not the static dev fixture.
         </p>
-        <p className="vh-voter-why">
-          <strong>If we find a match,</strong> we’ll save a short summary (like
-          county or precinct) to your profile. <strong>If we don’t,</strong> you
-          can still volunteer — we’ll note what happened and you can move on.
+      )}
+      {embedded ? (
+        <p className="vh-voter-why vh-voter-why--compact">
+          We match against the public voter file (never your full street address
+          here). <strong>Out of state?</strong> Choose “registered in another
+          state” in the form — we skip the Arkansas lookup.
         </p>
-        <p className="vh-voter-why">
-          <strong>Out of state?</strong> Choose “registered in another state”
-          below — no judgment, we just won’t run an Arkansas file match.
-        </p>
-      </div>
+      ) : (
+        <div className="vh-card">
+          <h3 className="vh-task-title">{task.title}</h3>
+          {task.description && (
+            <p className="vh-task-desc">{task.description}</p>
+          )}
+          <p className="vh-voter-why">
+            This step links you to a public voter record so we can place you in
+            the right local context — we never show your full street address here.
+          </p>
+          <p className="vh-voter-why">
+            <strong>If we find a match,</strong> we’ll save a short summary (like
+            county or precinct) to your profile. <strong>If we don’t,</strong> you
+            can still volunteer — we’ll note what happened and you can move on.
+          </p>
+          <p className="vh-voter-why">
+            <strong>Out of state?</strong> Choose “registered in another state”
+            below — no judgment, we just won’t run an Arkansas file match.
+          </p>
+        </div>
+      )}
 
       {resultNote && !candidates?.length && (
         <p className="vh-voter-result" role="status">

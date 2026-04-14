@@ -69,7 +69,7 @@ function nextStepMessage(
   voterTaskPending: boolean,
 ): string {
   if (voterTaskPending) {
-    return "When you’re ready, confirm your voter info above — it helps place you in the right local context.";
+    return "Use the voter confirmation form in the main column — when you’re done, your status summary updates below it.";
   }
   if (pending) {
     return "Finish the step above when you’re ready — then we’ll line up what makes sense next.";
@@ -85,9 +85,17 @@ type Props = {
   opts: EdgeInvokeOptions;
   onRefresh: () => Promise<void>;
   onSignOut: () => void | Promise<void>;
+  /** Set only by {@link VolunteerDevFixture} — shows a non-persistent preview hint near the voter form. */
+  devFixtureShell?: boolean;
 };
 
-export function VolunteerHome({ context, opts, onRefresh, onSignOut }: Props) {
+export function VolunteerHome({
+  context,
+  opts,
+  onRefresh,
+  onSignOut,
+  devFixtureShell = false,
+}: Props) {
   const { volunteer, tasks } = context;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +200,17 @@ export function VolunteerHome({ context, opts, onRefresh, onSignOut }: Props) {
       : activeView === "tasks"
         ? "Tasks"
         : "Voter record";
+
+  const voterRecordViewFocus =
+    voterConfirmPending && activeView === "voter_record";
+
+  const mainClassName = [
+    "vh-main",
+    voterRecordViewFocus ? "vh-main--voter-record-view" : "",
+    voterConfirmPending ? "vh-main--voter-step-active" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="vh-root">
@@ -342,12 +361,14 @@ export function VolunteerHome({ context, opts, onRefresh, onSignOut }: Props) {
           </button>
         </aside>
 
-        <main className="vh-main" aria-label="Workspace">
+        <main className={mainClassName} aria-label="Workspace">
           <div className="vh-main-header">
             <h1 className="vh-main-title">{mainHeading}</h1>
             {activeView === "home" && (
               <p className="vh-main-lead">
-                Your home base — open tasks and next steps show up here.
+                {voterConfirmPending
+                  ? "Your next step is voter confirmation — the form is first in the column below."
+                  : "Your home base — open tasks and next steps show up here."}
               </p>
             )}
             {activeView === "tasks" && (
@@ -355,15 +376,57 @@ export function VolunteerHome({ context, opts, onRefresh, onSignOut }: Props) {
             )}
             {activeView === "voter_record" && (
               <p className="vh-main-lead">
-                Linking your voter file row helps place you in the right local context.
+                {voterConfirmPending
+                  ? "Focus on the form below — status and placement details follow once you’re done."
+                  : "Linking your voter file row helps place you in the right local context."}
               </p>
             )}
           </div>
 
-          <VoterRecordSummary volunteer={volunteer} tasks={tasks} />
+          {!voterConfirmPending && (
+            <VoterRecordSummary volunteer={volunteer} tasks={tasks} />
+          )}
+
+          {voterConfirmPending && pendingTask && (
+            <>
+              <div className="vh-step-progress" aria-label="Onboarding progress">
+                <span className="vh-step-progress-label">Voter confirmation</span>
+                <span className="vh-step-progress-track" aria-hidden>
+                  <span className="vh-step-progress-fill" />
+                </span>
+                <span className="vh-step-progress-meta">Step 1 of 1 · in progress</span>
+              </div>
+              <section
+                className="vh-surface vh-section vh-voter-confirm-focus"
+                aria-labelledby="vh-voter-confirm-heading"
+              >
+                <h2 id="vh-voter-confirm-heading" className="vh-h2 vh-voter-confirm-h2">
+                  Confirm your voter record
+                </h2>
+                <p className="vh-voter-confirm-deck">
+                  A short form — your main actions are the lookup and choice buttons below.
+                </p>
+                <VoterMatchPanel
+                  task={pendingTask}
+                  opts={opts}
+                  onRefresh={onRefresh}
+                  onDoneMessage={(msg) => setCompletionBanner(msg)}
+                  presentation="embedded"
+                  showDevFixtureHint={devFixtureShell}
+                />
+              </section>
+              <VoterRecordSummary volunteer={volunteer} tasks={tasks} />
+            </>
+          )}
 
           {activeView === "tasks" && (
             <section className="vh-surface vh-section" aria-label="All tasks">
+              {voterConfirmPending && (
+                <p className="vh-task-tab-note">
+                  The same open step appears above — complete it there; this list is
+                  your full queue.
+                </p>
+              )}
               <h2 className="vh-h2 vh-h2--inline">Your list</h2>
               {tasks.length === 0 ? (
                 <p className="vh-empty">
@@ -390,53 +453,47 @@ export function VolunteerHome({ context, opts, onRefresh, onSignOut }: Props) {
             </section>
           )}
 
-          <section className="vh-surface vh-section" aria-label="Current task">
-            <h2 className="vh-h2">Current task</h2>
-            {tasks.length === 0 && (
-              <p className="vh-empty">
-                You don’t have a task yet — we’ll get you your next step soon. If
-                something feels stuck, reach out to your organizer.
-              </p>
-            )}
-            {tasks.length > 0 && !pendingTask && (
-              <p className="vh-empty">
-                You’re all caught up — no open tasks right now. We’ll put the next
-                move here when it’s ready.
-              </p>
-            )}
-            {pendingTask && voterConfirmPending && (
-              <VoterMatchPanel
-                task={pendingTask}
-                opts={opts}
-                onRefresh={onRefresh}
-                onDoneMessage={(msg) => setCompletionBanner(msg)}
-              />
-            )}
-            {pendingTask && !voterConfirmPending && (
-              <>
-                <div className="vh-card">
-                  <h3 className="vh-task-title">{pendingTask.title}</h3>
-                  {pendingTask.description && (
-                    <p className="vh-task-desc">{pendingTask.description}</p>
-                  )}
-                  {pendingTask.due_at && (
-                    <p className="vh-due">
-                      Due: {new Date(pendingTask.due_at).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-                {error && <p className="vh-error">{error}</p>}
-                <button
-                  type="button"
-                  className="vh-button"
-                  onClick={() => void handleGenericComplete()}
-                  disabled={loading}
-                >
-                  {loading ? "Saving…" : "I did it — mark complete"}
-                </button>
-              </>
-            )}
-          </section>
+          {!voterConfirmPending && (
+            <section className="vh-surface vh-section" aria-label="Current task">
+              <h2 className="vh-h2">Current task</h2>
+              {tasks.length === 0 && (
+                <p className="vh-empty">
+                  You don’t have a task yet — we’ll get you your next step soon. If
+                  something feels stuck, reach out to your organizer.
+                </p>
+              )}
+              {tasks.length > 0 && !pendingTask && (
+                <p className="vh-empty">
+                  You’re all caught up — no open tasks right now. We’ll put the next
+                  move here when it’s ready.
+                </p>
+              )}
+              {pendingTask && !voterConfirmPending && (
+                <>
+                  <div className="vh-card">
+                    <h3 className="vh-task-title">{pendingTask.title}</h3>
+                    {pendingTask.description && (
+                      <p className="vh-task-desc">{pendingTask.description}</p>
+                    )}
+                    {pendingTask.due_at && (
+                      <p className="vh-due">
+                        Due: {new Date(pendingTask.due_at).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  {error && <p className="vh-error">{error}</p>}
+                  <button
+                    type="button"
+                    className="vh-button"
+                    onClick={() => void handleGenericComplete()}
+                    disabled={loading}
+                  >
+                    {loading ? "Saving…" : "I did it — mark complete"}
+                  </button>
+                </>
+              )}
+            </section>
+          )}
         </main>
 
         <aside className="vh-right" aria-label="Context and next steps">

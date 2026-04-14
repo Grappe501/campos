@@ -1,0 +1,16 @@
+.vo-dev-fixture-banner {
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: #1e293b;
+  background: #fef3c7;
+  border-bottom: 1px solid #fcd34d;
+}
+
+.vo-dev-fixture-banner strong {
+  font-weight: 600;
+}
+
+.vo-dev-fixture-banner code {
+  font-size: 0.8125rem;
+}

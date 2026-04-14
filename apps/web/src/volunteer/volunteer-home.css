@@ -228,6 +228,105 @@
   min-width: 0;
 }
 
+.vh-main--voter-step-active .vh-main-header {
+  margin-bottom: 0.75rem;
+}
+
+.vh-main--voter-record-view {
+  background: linear-gradient(
+    180deg,
+    rgba(240, 253, 250, 0.55) 0%,
+    transparent 12rem
+  );
+  border-radius: 0 0 12px 12px;
+}
+
+.vh-step-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 0.85rem;
+  padding: 0.45rem 0.65rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.vh-step-progress-label {
+  font-weight: 650;
+  color: #0f766e;
+}
+
+.vh-step-progress-track {
+  flex: 1 1 5rem;
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+  min-width: 4rem;
+}
+
+.vh-step-progress-fill {
+  display: block;
+  height: 100%;
+  width: 55%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0f766e, #2dd4bf);
+}
+
+.vh-step-progress-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.vh-voter-confirm-focus {
+  border-color: rgba(15, 118, 110, 0.28);
+  box-shadow: 0 1px 0 rgba(15, 118, 110, 0.08);
+}
+
+.vh-voter-confirm-h2 {
+  margin-bottom: 0.35rem;
+}
+
+.vh-voter-confirm-deck {
+  margin: 0 0 0.85rem;
+  font-size: 0.88rem;
+  color: #64748b;
+  line-height: 1.45;
+  max-width: 40rem;
+}
+
+.vh-task-tab-note {
+  margin: 0 0 0.65rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.vh-voter-fixture-hint {
+  margin: 0 0 0.65rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+}
+
+.vh-voter--embedded .vh-voter-why--compact {
+  margin: 0 0 0.65rem;
+  max-width: 40rem;
+}
+
 .vh-main-header {
   margin-bottom: 1rem;
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { ManagerMiniCommand } from "./manager/ManagerMiniCommand";
+import { isVolunteerDevFixtureEnabled } from "./volunteer/devVolunteerFixture";
+import { VolunteerDevFixture } from "./volunteer/VolunteerDevFixture";
 import { VolunteerOnboarding } from "./volunteer/VolunteerOnboarding";
 
 function isManagerRoute(): boolean {
@@ -20,7 +22,13 @@ export function App() {
 
   return (
     <main style={{ minHeight: "100vh", background: "#f4f4f5" }}>
-      {managerView ? <ManagerMiniCommand /> : <VolunteerOnboarding />}
+      {managerView ? (
+        <ManagerMiniCommand />
+      ) : isVolunteerDevFixtureEnabled() ? (
+        <VolunteerDevFixture />
+      ) : (
+        <VolunteerOnboarding />
+      )}
     </main>
   );
 }
